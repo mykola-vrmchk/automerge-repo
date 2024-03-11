@@ -461,7 +461,7 @@ describe("Repo", () => {
   })
 
   describe("with peers (linear network)", async () => {
-    it.only("'client' loads documents from 'server' after reload", async () => {
+    it("'client' loads documents from 'server' after reload", async () => {
       const client = "client" as PeerId
       const server = "server" as PeerId
       const storage = new DummyStorageAdapter()
@@ -524,7 +524,7 @@ describe("Repo", () => {
       const { clientRepo, teardown } = await setup()
       const handle = clientRepo.find<TestDoc>(documentUrl)
       documentUrl = handle.url
-      // await eventPromise(handle, "change")
+      await eventPromise(handle, "change")
       await handle.whenReady()
       expect(handle.docSync()).toEqual({ foo: "bar" })
       teardown()
