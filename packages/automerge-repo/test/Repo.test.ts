@@ -461,6 +461,76 @@ describe("Repo", () => {
   })
 
   describe("with peers (linear network)", async () => {
+    it.only("'client' loads documents from 'server' after reload", async () => {
+      const client = "client" as PeerId
+      const server = "server" as PeerId
+      const storage = new DummyStorageAdapter()
+      let documentUrl: AutomergeUrl
+
+      const setup = async () => {
+        const [clientAdapter, serverAdapter] =
+          DummyNetworkAdapter.createConnectedPair()
+        // Client repo is a thin client which access data on a server.
+        const clientRepo = new Repo({
+          network: [clientAdapter],
+          peerId: client,
+        })
+        // Server repo is a data store
+        const serverRepo = new Repo({
+          network: [serverAdapter],
+          peerId: server,
+          storage,
+        })
+        const ready = Promise.all([
+          eventPromise(clientRepo.networkSubsystem, "peer"),
+          eventPromise(serverRepo.networkSubsystem, "peer"),
+        ])
+
+        clientAdapter.peerCandidate(server)
+        serverAdapter.peerCandidate(client)
+        await ready
+
+        
+        const teardown = () => {
+          clientAdapter.close()
+          serverAdapter.close()
+        }
+
+        return { clientRepo, serverRepo, clientAdapter, serverAdapter, teardown }
+
+      }
+
+      // First run.
+      {
+        const { clientRepo, serverRepo, teardown } = await setup()
+        const handle = clientRepo.create<TestDoc>()
+        documentUrl = handle.url
+        handle.change(d => {
+          d.foo = "bar"
+        })
+        // Check if server received the document.
+        const handleOnServer = serverRepo.find<TestDoc>(documentUrl)
+        await eventPromise(handleOnServer, "change")
+
+        await handle.whenReady()
+        expect(handleOnServer.docSync()).toEqual({ foo: "bar" })
+        teardown()
+      }
+
+      await pause(100)
+
+      // Second run
+     {
+      const { clientRepo, teardown } = await setup()
+      const handle = clientRepo.find<TestDoc>(documentUrl)
+      documentUrl = handle.url
+      // await eventPromise(handle, "change")
+      await handle.whenReady()
+      expect(handle.docSync()).toEqual({ foo: "bar" })
+      teardown()
+     }
+    })
+
     it("n-peers connected in a line", async () => {
       const createNConnectedRepos = async (
         numberOfPeers: number,
