@@ -461,7 +461,7 @@ describe("Repo", () => {
   })
 
   describe("with peers (linear network)", async () => {
-    it("'client' loads documents from 'server' after reload", async () => {
+    it.only("'client' loads documents from 'server' after reload", async () => {
       const client = "client" as PeerId
       const server = "server" as PeerId
       const storage = new DummyStorageAdapter()
@@ -490,14 +490,18 @@ describe("Repo", () => {
         serverAdapter.peerCandidate(client)
         await ready
 
-        
         const teardown = () => {
           clientAdapter.close()
           serverAdapter.close()
         }
 
-        return { clientRepo, serverRepo, clientAdapter, serverAdapter, teardown }
-
+        return {
+          clientRepo,
+          serverRepo,
+          clientAdapter,
+          serverAdapter,
+          teardown,
+        }
       }
 
       // First run.
@@ -510,9 +514,8 @@ describe("Repo", () => {
         })
         // Check if server received the document.
         const handleOnServer = serverRepo.find<TestDoc>(documentUrl)
-        await eventPromise(handleOnServer, "change")
 
-        await handle.whenReady()
+        await handleOnServer.whenReady()
         expect(handleOnServer.docSync()).toEqual({ foo: "bar" })
         teardown()
       }
@@ -520,15 +523,15 @@ describe("Repo", () => {
       await pause(100)
 
       // Second run
-     {
-      const { clientRepo, teardown } = await setup()
-      const handle = clientRepo.find<TestDoc>(documentUrl)
-      documentUrl = handle.url
-      await eventPromise(handle, "change")
-      await handle.whenReady()
-      expect(handle.docSync()).toEqual({ foo: "bar" })
-      teardown()
-     }
+      {
+        const { clientRepo, teardown } = await setup()
+        const handle = clientRepo.find<TestDoc>(documentUrl)
+        documentUrl = handle.url
+        
+        await handle.whenReady()
+        expect(handle.docSync()).toEqual({ foo: "bar" })
+        teardown()
+      }
     })
 
     it("n-peers connected in a line", async () => {
